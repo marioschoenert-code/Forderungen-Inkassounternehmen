@@ -67,30 +67,35 @@ public class SyncMainActivity extends Activity {
                 // API33-konform), damit Syncthing (Tablet + Desktop) die Datei sieht.
                 try {
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        // API33-konform via MediaStore: vorhandene Datei suchen und
-                        // ueberschreiben (kein Insert -> keine '(n).json' Umbenennung).
                         android.net.Uri coll = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI;
-                        String sel = android.provider.MediaStore.Downloads.DISPLAY_NAME + "=? AND " +
-                                android.provider.MediaStore.Downloads.RELATIVE_PATH + "=?";
-                        String[] args = new String[]{ filename, android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync/" };
-                        android.net.Uri targetUri = null;
-                        try {
-                            android.database.Cursor cur = context.getContentResolver().query(coll, new String[]{ "_id" }, sel, args, null);
-                            if (cur != null) {
-                                if (cur.moveToFirst()) {
-                                    long id = cur.getLong(0);
-                                    targetUri = android.content.ContentUris.withAppendedId(coll, id);
-                                }
-                                cur.close();
-                            }
-                        } catch (Exception qe) { Log.w("SYNC", "saveFile mediastore query: " + qe.getMessage()); }
-                        if (targetUri == null) {
-                            android.content.ContentValues cv = new android.content.ContentValues();
-                            cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, filename);
-                            cv.put(android.provider.MediaStore.Downloads.RELATIVE_PATH,
-                                    android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync");
-                            targetUri = context.getContentResolver().insert(coll, cv);
+                        // Robust: eindeutigen Dateinamen (Timestamp) verwenden, damit
+                        // MediaStore nie auf '(n).json' umbenennen muss (Konflikt-frei).
+                        String msName = filename;
+                        if ("forderungen-sync.json".equals(filename)) {
+                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US);
+                            msName = "forderungen-sync-" + sdf.format(new java.util.Date()) + ".json";
                         }
+                        // Alle vorhandenen forderungen-sync*.json im Ordner loeschen (Replace),
+                        // damit immer nur die neueste uebrig bleibt.
+                        try {
+                            String delSel = android.provider.MediaStore.Downloads.RELATIVE_PATH + "=? AND " +
+                                    android.provider.MediaStore.Downloads.DISPLAY_NAME + " LIKE ?";
+                            String[] delArgs = new String[]{ android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync/", "forderungen-sync%" };
+                            android.database.Cursor dcur = context.getContentResolver().query(coll, new String[]{ "_id" }, delSel, delArgs, null);
+                            if (dcur != null) {
+                                while (dcur.moveToNext()) {
+                                    long did = dcur.getLong(0);
+                                    context.getContentResolver().delete(android.content.ContentUris.withAppendedId(coll, did), null, null);
+                                }
+                                dcur.close();
+                            }
+                        } catch (Exception de) { Log.w("SYNC", "saveFile mediastore delete old: " + de.getMessage()); }
+                        // Jetzt sicher einfuegen (eindeutiger Name, kein Konflikt)
+                        android.content.ContentValues cv = new android.content.ContentValues();
+                        cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, msName);
+                        cv.put(android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                                android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync");
+                        android.net.Uri targetUri = context.getContentResolver().insert(coll, cv);
                         if (targetUri != null) {
                             java.io.OutputStream os = context.getContentResolver().openOutputStream(targetUri);
                             os.write(data);
@@ -142,10 +147,14 @@ public class SyncMainActivity extends Activity {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                     try {
                         android.net.Uri coll = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI;
-                        String sel = android.provider.MediaStore.Downloads.DISPLAY_NAME + "=? AND " +
-                                android.provider.MediaStore.Downloads.RELATIVE_PATH + "=?";
-                        String[] args = new String[]{ "forderungen-sync.json", android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync/" };
-                        android.database.Cursor cur = context.getContentResolver().query(coll, new String[]{ "_id" }, sel, args, null);
+                        // Alle forderungen-sync* im Ordner, neueste zuerst (Export nutzt
+                        // einen eindeutigen Timestamp-Namen, daher die neueste nehmen).
+                        String sel = android.provider.MediaStore.Downloads.RELATIVE_PATH + "=? AND " +
+                                android.provider.MediaStore.Downloads.DISPLAY_NAME + " LIKE ?";
+                        String[] args = new String[]{ android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync/", "forderungen-sync%" };
+                        android.database.Cursor cur = context.getContentResolver().query(
+                                coll, new String[]{ "_id", android.provider.MediaStore.Downloads.DATE_MODIFIED },
+                                sel, args, android.provider.MediaStore.Downloads.DATE_MODIFIED + " DESC");
                         if (cur != null) {
                             if (cur.moveToFirst()) {
                                 long id = cur.getLong(0);
@@ -220,7 +229,13 @@ public class SyncMainActivity extends Activity {
         webView.getSettings().setUseWideViewPort(true);
         webView.getSettings().setLoadWithOverviewMode(true);
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(android.webkit.WebView view, String url) {
+                super.onPageFinished(view, url);
+            }
+        });
+
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onConsoleMessage(android.webkit.ConsoleMessage cm) {
