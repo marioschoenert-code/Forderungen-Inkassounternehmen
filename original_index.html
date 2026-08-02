@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Forderungs- und Rechnungsmanagement / Finanzplan</title>
+<style>
+  html, body { font-family: system-ui, sans-serif; background:#f8fafc; color:#0f172a; margin:0; padding:0; }
+  #root { min-height: 100vh; }
+</style>
+<script crossorigin src="./vendor/react.production.min.js"></script>
+<script crossorigin src="./vendor/react-dom.production.min.js"></script>
+<script src="./vendor/qrcode.js"></script>
+<script src="./vendor/tesseract/tesseract.min.js"></script>
+<script src="./vendor/tailwind.js"></script>
+<script>
+(function() {
+  'use strict';
+  window.addEventListener('error', function(ev) {
+    try {
+      var el = document.createElement('pre');
+      el.style.cssText = 'position:fixed;inset:0;background:#0f172a;color:#fee2e2;padding:1rem;font:12px monospace;white-space:pre-wrap;z-index:99999;overflow:auto;';
+      el.textContent = 'START-FEHLER\n' + (ev.error || ev.message || String(ev));
+      document.body.appendChild(el);
+    } catch(e) {}
+  });
+  window.addEventListener('unhandledrejection', function(ev) {
+    try {
+      var reason = ev.reason || {};
+      var src = (reason.stack || '');
+      if(/chrome-extension:/.test(src)) return;
+      var root = document.getElementById('root');
+      if(root) root.textContent = 'ASYNC-FEHLER\\n' + (src || reason.message || reason || 'Unbekannt');
+    } catch(e){}
+  });
+})();
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script src="./app.js"></script>
+</body>
+</html>

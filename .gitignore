@@ -1,0 +1,33 @@
+# Build artifacts (large binaries, not source)
+*.apk
+*.idsig
+*.zip
+*.aab
+*.bak
+*.bak2
+
+# Signing keys — SECRETS, never commit
+*.keystore
+*.jks
+keystore*
+debug.keystore
+
+# Test / intermediate variants
+*-test-*.apk
+*-patched*.apk
+*-aligned.apk
+*_aligned.apk
+*-unpatched*.apk
+*-repacked.zip
+*-raw.apk
+
+# Local state / temp
+.tmp
+*.tmp
+node_modules/
+__pycache__/
+*.pyc
+
+# OS
+Thumbs.db
+.DS_Store
