@@ -63,6 +63,52 @@ public class SyncMainActivity extends Activity {
                 fos.write(data);
                 fos.close();
                 Log.d("SYNC", "saveFile wrote: " + out.getAbsolutePath() + " (" + data.length + " bytes)");
+                // ZUSATZ: auch nach /sdcard/Download/Forderungen-sync/ schreiben (MediaStore,
+                // API33-konform), damit Syncthing (Tablet + Desktop) die Datei sieht.
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        // API33-konform via MediaStore: vorhandene Datei suchen und
+                        // ueberschreiben (kein Insert -> keine '(n).json' Umbenennung).
+                        android.net.Uri coll = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+                        String sel = android.provider.MediaStore.Downloads.DISPLAY_NAME + "=? AND " +
+                                android.provider.MediaStore.Downloads.RELATIVE_PATH + "=?";
+                        String[] args = new String[]{ filename, android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync/" };
+                        android.net.Uri targetUri = null;
+                        try {
+                            android.database.Cursor cur = context.getContentResolver().query(coll, new String[]{ "_id" }, sel, args, null);
+                            if (cur != null) {
+                                if (cur.moveToFirst()) {
+                                    long id = cur.getLong(0);
+                                    targetUri = android.content.ContentUris.withAppendedId(coll, id);
+                                }
+                                cur.close();
+                            }
+                        } catch (Exception qe) { Log.w("SYNC", "saveFile mediastore query: " + qe.getMessage()); }
+                        if (targetUri == null) {
+                            android.content.ContentValues cv = new android.content.ContentValues();
+                            cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, filename);
+                            cv.put(android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                                    android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync");
+                            targetUri = context.getContentResolver().insert(coll, cv);
+                        }
+                        if (targetUri != null) {
+                            java.io.OutputStream os = context.getContentResolver().openOutputStream(targetUri);
+                            os.write(data);
+                            os.close();
+                            Log.d("SYNC", "saveFile wrote (mediastore): " + targetUri.toString() + " (" + data.length + " bytes)");
+                        }
+                    } else {
+                        File pubDir = new File(android.os.Environment.getExternalStorageDirectory(), "Forderungen-sync");
+                        if (!pubDir.exists()) pubDir.mkdirs();
+                        File pubOut = new File(pubDir, filename);
+                        java.io.FileOutputStream pfos = new java.io.FileOutputStream(pubOut);
+                        pfos.write(data);
+                        pfos.close();
+                        Log.d("SYNC", "saveFile wrote (public): " + pubOut.getAbsolutePath() + " (" + data.length + " bytes)");
+                    }
+                } catch (Exception pe) {
+                    Log.w("SYNC", "saveFile public-dir skipped: " + pe.getMessage());
+                }
                 return true;
             } catch (Exception e) {
                 Log.e("SYNC", "saveFile error: " + e.getMessage());
@@ -117,16 +163,17 @@ public class SyncMainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // RUNTIME PERMISSIONS: READ/WRITE_EXTERNAL_STORAGE anfordern (MediaStore-Lesezugriff fuer Import)
+        // RUNTIME PERMISSIONS: READ/WRITE_EXTERNAL_STORAGE anfordern (Schreibzugriff
+        // auf /sdcard/Forderungen-sync fuer Syncthing-Sichtbarkeit, auch API33+)
         String permRead = "android.permission.READ_EXTERNAL_STORAGE";
         String permWrite = "android.permission.WRITE_EXTERNAL_STORAGE";
         java.util.List<String> needed = new java.util.ArrayList<String>();
         if (checkSelfPermission(permRead) != android.content.pm.PackageManager.PERMISSION_GRANTED) needed.add(permRead);
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q
-                && checkSelfPermission(permWrite) != android.content.pm.PackageManager.PERMISSION_GRANTED) needed.add(permWrite);
+        if (checkSelfPermission(permWrite) != android.content.pm.PackageManager.PERMISSION_GRANTED) needed.add(permWrite);
         if (!needed.isEmpty()) requestPermissions(needed.toArray(new String[0]), 1);
 
         getWindow().setFlags(1024, 1024);
+        getWindow().addFlags(128);
 
         FrameLayout layout = new FrameLayout(this);
 
