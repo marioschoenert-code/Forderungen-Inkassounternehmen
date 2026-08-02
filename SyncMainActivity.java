@@ -72,15 +72,15 @@ public class SyncMainActivity extends Activity {
                         // MediaStore nie auf '(n).json' umbenennen muss (Konflikt-frei).
                         String msName = filename;
                         if ("forderungen-sync.json".equals(filename)) {
-                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US);
+                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss-SSS", java.util.Locale.US);
                             msName = "forderungen-sync-" + sdf.format(new java.util.Date()) + ".json";
                         }
-                        // Alle vorhandenen forderungen-sync*.json im Ordner loeschen (Replace),
-                        // damit immer nur die neueste uebrig bleibt.
+                        // Alle vorhandenen forderungen-sync*.json im Sync-Ordner loeschen (Replace),
+                        // damit immer nur die neueste uebrig bleibt. RELATIVE_PATH weglassen,
+                        // da MediaStore den Pfad manchmal anders normalisiert (sonst keine Treffer).
                         try {
-                            String delSel = android.provider.MediaStore.Downloads.RELATIVE_PATH + "=? AND " +
-                                    android.provider.MediaStore.Downloads.DISPLAY_NAME + " LIKE ?";
-                            String[] delArgs = new String[]{ android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync/", "forderungen-sync%" };
+                            String delSel = android.provider.MediaStore.Downloads.DISPLAY_NAME + " LIKE ?";
+                            String[] delArgs = new String[]{ "forderungen-sync%" };
                             android.database.Cursor dcur = context.getContentResolver().query(coll, new String[]{ "_id" }, delSel, delArgs, null);
                             if (dcur != null) {
                                 while (dcur.moveToNext()) {
@@ -251,12 +251,7 @@ public class SyncMainActivity extends Activity {
 
         webView.loadUrl("file:///android_asset/index.html");
 
-        // Auto-Export: sofort nach Start + alle 30s (Android-Rundlauf via JS-Bridge)
-        webView.postDelayed(new Runnable() {
-            @Override public void run() {
-                webView.evaluateJavascript("if (typeof window.writeSyncFile === 'function') { try { window.writeSyncFile(window.collectAllData()); } catch(e){} }", null);
-            }
-        }, 8000);
+        // Auto-Export: alle 30s (Android-Rundlauf via JS-Bridge)
         webView.postDelayed(new Runnable() {
             @Override public void run() {
                 webView.evaluateJavascript("if (typeof window.writeSyncFile === 'function') { try { window.writeSyncFile(window.collectAllData()); } catch(e){} }", null);

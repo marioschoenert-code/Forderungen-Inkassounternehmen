@@ -8781,9 +8781,8 @@ function Root() {
   // GLOBALER AUTO-EXPORT: immer beim Start (Setup + Dashboard), unabhaengig von setupMode
   React.useEffect(() => {
     try {
-      var t0 = setTimeout(function(){ try { window.writeSyncFile(window.collectAllData()); } catch(e){ console.log('[SYNC] global startup export error=' + e.message); } }, 8000);
       var t1 = setInterval(function(){ try { window.writeSyncFile(window.collectAllData()); } catch(e){ console.log('[SYNC] global interval export error=' + e.message); } }, 30000);
-      return function(){ clearTimeout(t0); clearInterval(t1); };
+      return function(){ clearInterval(t1); };
     } catch(e) { console.log('[SYNC] global export setup error=' + e.message); }
   }, []);
 
