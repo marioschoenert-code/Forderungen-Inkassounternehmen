@@ -137,6 +137,35 @@ public class SyncMainActivity extends Activity {
 
         private String readLatestSyncFile() {
             try {
+                // 1) API33-konform: zuerst aus MediaStore /sdcard/Download/Forderungen-sync/ lesen
+                //    (dort schreibt saveFile den Export hin).
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    try {
+                        android.net.Uri coll = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+                        String sel = android.provider.MediaStore.Downloads.DISPLAY_NAME + "=? AND " +
+                                android.provider.MediaStore.Downloads.RELATIVE_PATH + "=?";
+                        String[] args = new String[]{ "forderungen-sync.json", android.os.Environment.DIRECTORY_DOWNLOADS + "/Forderungen-sync/" };
+                        android.database.Cursor cur = context.getContentResolver().query(coll, new String[]{ "_id" }, sel, args, null);
+                        if (cur != null) {
+                            if (cur.moveToFirst()) {
+                                long id = cur.getLong(0);
+                                android.net.Uri uri = android.content.ContentUris.withAppendedId(coll, id);
+                                java.io.InputStream is = context.getContentResolver().openInputStream(uri);
+                                java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                                byte[] buf = new byte[4096];
+                                int n;
+                                while ((n = is.read(buf)) != -1) bos.write(buf, 0, n);
+                                is.close();
+                                cur.close();
+                                String result = new String(bos.toByteArray(), "UTF-8");
+                                Log.d("SYNC", "pickSyncFile read (mediastore) " + result.length() + " bytes");
+                                return result;
+                            }
+                            cur.close();
+                        }
+                    } catch (Exception me) { Log.w("SYNC", "readLatestSyncFile mediastore: " + me.getMessage()); }
+                }
+                // 2) Fallback: app-eigener Ordner (alt)
                 File dir = new File(context.getExternalFilesDir(null), "forderungen-sync");
                 File f = new File(dir, "forderungen-sync.json");
                 if (f.exists()) {

@@ -29,7 +29,7 @@ window.collectAllData = function() {
 };
 
 var SYNC_FNAME = 'forderungen-sync.json';
-var SYNC_DIR = 'Android/data/com.forderungen.app/files/forderungen-sync';
+var SYNC_DIR = 'Download/Forderungen-sync';
 window.writeSyncFile = function(payload) {
   try {
     var json = (typeof payload === 'string') ? payload : JSON.stringify(payload, null, 2);
