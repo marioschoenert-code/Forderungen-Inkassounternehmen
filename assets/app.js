@@ -4539,7 +4539,7 @@ function KassenbonManual() {
 
     bar.id = 'sync-bar';
 
-    bar.style.cssText = 'position:sticky;top:0;margin:8px 16px;display:flex;gap:8px;z-index:40;';
+    bar.style.cssText = 'position:relative;top:0;margin:8px 16px;display:flex;gap:8px;z-index:40;';
 
     var b1 = document.createElement('button');
 
